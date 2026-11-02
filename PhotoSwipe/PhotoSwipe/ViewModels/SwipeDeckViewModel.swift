@@ -317,10 +317,9 @@ final class SwipeDeckViewModel: ObservableObject {
         let selected = selected.intersection(candidates)
         switch review.source {
         case .pending:
-            for id in candidates {
-                if selected.contains(id) { trashStore.add(id); pendingTrashIDs.insert(id) }
-                else { trashStore.remove(id); pendingTrashIDs.remove(id) }
-            }
+            pendingTrashIDs.subtract(candidates)
+            pendingTrashIDs.formUnion(selected)
+            trashStore.replace(pendingTrashIDs)
         case .duplicates:
             for index in duplicateGroups.indices {
                 duplicateGroups[index].trashIDs.subtract(candidates)
@@ -357,7 +356,8 @@ final class SwipeDeckViewModel: ObservableObject {
             stats = statsStore.record(freed: bytes, deleted: toDelete.count, duplicates: duplicates)
             freedBytes = bytes
             estimatedFreeBytes = 0
-            for id in selected { trashStore.remove(id); pendingTrashIDs.remove(id) }
+            pendingTrashIDs.subtract(selected)
+            trashStore.replace(pendingTrashIDs)
             history.removeAll { selected.contains($0.asset.localIdentifier) }
             let currentID = current?.localIdentifier
             assets.removeAll { selected.contains($0.localIdentifier) }

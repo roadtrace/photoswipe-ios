@@ -13,6 +13,7 @@ final class PendingTrashStore {
     func add(_ id: String) { ids.insert(id); persist() }
     func remove(_ id: String) { ids.remove(id); persist() }
     func clear() { ids.removeAll(); persist() }
+    func replace(_ updated: Set<String>) { ids = updated; persist() }
 
     private func persist() { defaults.set(Array(ids), forKey: key) }
 }
