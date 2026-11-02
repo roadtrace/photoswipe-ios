@@ -9,6 +9,7 @@ mkdir -p build/ui-fixtures build/ui-artifacts
 cp PhotoSwipe/docs/screenshots/01-picker.png build/ui-fixtures/copy-one.png
 cp PhotoSwipe/docs/screenshots/01-picker.png build/ui-fixtures/copy-two.png
 cp PhotoSwipe/docs/screenshots/01-picker.png build/ui-fixtures/copy-three.png
+cp PhotoSwipe/docs/screenshots/01-picker.png build/ui-fixtures/copy-four.png
 xcrun simctl addmedia "$DEVICE" build/ui-fixtures/*.png
 ARGS=(-project PhotoSwipe/PhotoSwipe.xcodeproj -scheme PhotoSwipe -configuration Debug
       -destination "platform=iOS Simulator,id=$DEVICE" -derivedDataPath build/UITests

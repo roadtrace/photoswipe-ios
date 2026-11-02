@@ -75,6 +75,13 @@ Material limitations:
 
 ## Improvements in this fork
 
+- **Random** opens a newly shuffled deck of unreviewed photos, using the same
+  swipe, progress, undo and deletion-review behavior as the other sources.
+- The comparison viewer, duplicate controls and deletion review follow the original
+  rounded typography, glass surfaces, spacing and action buttons. Gesture tutorials
+  and instructional paragraphs are omitted from these screens; accessibility labels
+  and meaningful error/status messages remain available.
+
 - Hold a duplicate thumbnail to open a full-screen comparison viewer. Pinch or
   double-tap to zoom, swipe or use arrows to compare, and explicitly change the
   deletion selection from the viewer. Opening a preview does not select the photo.

@@ -122,7 +122,7 @@ struct ReviewView: View {
                 HStack(spacing: 10) {
                     if vm.isCommitting { ProgressView().tint(.white) }
                     else if !vm.pendingTrash.isEmpty { Image(systemName: "trash.fill") }
-                    Text(vm.pendingTrash.isEmpty ? "Done" : "Review \(vm.pendingTrash.count) photos")
+                    Text(vm.pendingTrash.isEmpty ? "Done" : "Review \(vm.pendingTrash.count)")
                         .font(.system(.headline, design: .rounded).weight(.bold))
                 }
                 .frame(maxWidth: .infinity)

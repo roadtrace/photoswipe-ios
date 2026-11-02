@@ -146,6 +146,8 @@ final class SwipeDeckViewModel: ObservableObject {
         var working = allImages.filter { !store.isReviewed($0.localIdentifier) }
         switch source {
         case .all: break
+        case .random:
+            working.shuffle()
         case .screenshots:
             working = working.filter { $0.mediaSubtypes.contains(.photoScreenshot) }
         case .largest:

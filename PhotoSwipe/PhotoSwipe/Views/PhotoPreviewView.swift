@@ -25,11 +25,20 @@ struct PhotoPreviewView: View {
     var body: some View {
         VStack(spacing: 0) {
             HStack {
-                Button("Done") { dismiss() }
+                PhotoChromeButton(symbol: "xmark", label: "Done") { dismiss() }
+                    .accessibilityIdentifier("preview-close")
                 Spacer()
-                Text("\(index + 1) of \(preview.assets.count)").monospacedDigit()
+                VStack(spacing: 1) {
+                    Text("PHOTO")
+                        .font(.system(size: 11, weight: .semibold, design: .rounded))
+                        .tracking(1.6).foregroundStyle(Theme.textDim)
+                    Text("\(index + 1) / \(preview.assets.count)")
+                        .font(.system(.headline, design: .rounded).weight(.bold)).monospacedDigit()
+                }
+                Spacer()
+                Color.clear.frame(width: 44, height: 44)
             }
-            .padding()
+            .padding(.horizontal, 20).padding(.vertical, 8)
             TabView(selection: $selectedID) {
                 ForEach(preview.assets, id: \.localIdentifier) { asset in
                     PreviewPhotoPage(asset: asset, active: asset.localIdentifier == selectedID)
@@ -37,36 +46,34 @@ struct PhotoPreviewView: View {
                 }
             }
             .tabViewStyle(.page(indexDisplayMode: .never))
-            HStack {
-                Button { move(-1) } label: { Image(systemName: "chevron.left").frame(width: 44, height: 44) }
-                    .disabled(index == 0).accessibilityLabel("Previous photo")
-                Spacer()
+            VStack(spacing: 12) {
                 if let asset = preview.assets.first(where: { $0.localIdentifier == selectedID }) {
-                    VStack(spacing: 3) {
-                        if let date = asset.creationDate { Text(date.formatted(date: .abbreviated, time: .shortened)) }
+                    HStack(spacing: 10) {
+                        if let date = asset.creationDate { Text(date.formatted(date: .abbreviated, time: .omitted)) }
                         Text("\(asset.pixelWidth) × \(asset.pixelHeight)")
-                    }.font(.footnote).foregroundStyle(.secondary)
+                    }
+                    .font(.system(size: 12, weight: .medium, design: .rounded))
+                    .foregroundStyle(Theme.textDim)
                 }
-                Spacer()
-                Button { move(1) } label: { Image(systemName: "chevron.right").frame(width: 44, height: 44) }
-                    .disabled(index == preview.assets.count - 1).accessibilityLabel("Next photo")
-            }.padding(.horizontal)
-            if let isSelected, let toggleSelection {
-                Button {
-                    toggleSelection(selectedID)
-                    if isSelected(selectedID) { selectedForDeletion.insert(selectedID) }
-                    else { selectedForDeletion.remove(selectedID) }
-                } label: {
-                    Label(selectedForDeletion.contains(selectedID) ? "Selected for deletion — tap to keep" : "Keep photo — tap to select for deletion",
-                          systemImage: selectedForDeletion.contains(selectedID) ? "trash.circle.fill" : "checkmark.circle.fill")
-                        .frame(maxWidth: .infinity).padding()
+                HStack(spacing: 36) {
+                    PhotoChromeButton(symbol: "chevron.left", label: "Previous photo") { move(-1) }
+                        .disabled(index == 0).opacity(index == 0 ? 0.3 : 1)
+                    if let isSelected, let toggleSelection {
+                        PhotoChromeButton(symbol: selectedForDeletion.contains(selectedID) ? "trash.fill" : "checkmark",
+                            label: selectedForDeletion.contains(selectedID) ? "Keep photo" : "Select for deletion",
+                            tint: selectedForDeletion.contains(selectedID) ? Theme.trash : Theme.keep, size: 56) {
+                            toggleSelection(selectedID)
+                            if isSelected(selectedID) { selectedForDeletion.insert(selectedID) }
+                            else { selectedForDeletion.remove(selectedID) }
+                        }
+                        .accessibilityIdentifier("preview-selection")
+                    }
+                    PhotoChromeButton(symbol: "chevron.right", label: "Next photo") { move(1) }
+                        .disabled(index == preview.assets.count - 1)
+                        .opacity(index == preview.assets.count - 1 ? 0.3 : 1)
                 }
-                .tint(selectedForDeletion.contains(selectedID) ? Theme.trash : Theme.keep)
-                .buttonStyle(.bordered)
-                .padding(.horizontal)
             }
-            Text("Pinch or double-tap to zoom. Swipe or use arrows to compare.")
-                .font(.caption).foregroundStyle(.secondary).padding(.bottom, 10)
+            .padding(.top, 12).padding(.bottom, 16)
         }
         .background(.black).foregroundStyle(.white)
         .preferredColorScheme(.dark)
@@ -91,14 +98,16 @@ private struct PreviewPhotoPage: View {
             Color.black
             if let image { ZoomablePhoto(image: image) }
             else if failed {
-                ContentUnavailableView {
-                    Label("Photo unavailable", systemImage: "photo")
-                } description: {
-                    Text("Check your connection for iCloud photos or your Photos access.")
-                } actions: {
+                VStack(spacing: 16) {
+                    Image(systemName: "photo").font(.system(size: 44))
+                        .foregroundStyle(Theme.gradient(Theme.album, Theme.keep))
+                    Text("Photo unavailable")
+                        .font(.system(.headline, design: .rounded).weight(.bold))
                     Button("Try again") { Task { await load() } }
+                        .font(.system(.subheadline, design: .rounded).weight(.semibold))
+                        .tint(Theme.album)
                 }
-            } else { ProgressView("Loading photo…").tint(.white) }
+            } else { ProgressView().tint(.white) }
         }
         .task(id: active) {
             if active { await load() }

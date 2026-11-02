@@ -30,6 +30,54 @@ enum Theme {
     }
 }
 
+/// Shared chrome for the photo screens, matching the original deck controls.
+struct PhotoChromeButton: View {
+    let symbol: String
+    let label: String
+    var tint: Color = .white
+    var size: CGFloat = 44
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: symbol)
+                .font(.system(size: size * 0.38, weight: .bold))
+                .foregroundStyle(tint)
+                .frame(width: size, height: size)
+                .background(.ultraThinMaterial, in: Circle())
+                .overlay(Circle().strokeBorder(Theme.stroke))
+        }
+        .buttonStyle(PressableStyle())
+        .accessibilityLabel(label)
+    }
+}
+
+struct PhotoPrimaryButton: View {
+    let title: String
+    let symbol: String
+    var busy = false
+    var enabled = true
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 10) {
+                if busy { ProgressView().tint(.white) }
+                else { Image(systemName: symbol) }
+                Text(title).font(.system(.headline, design: .rounded).weight(.bold))
+            }
+            .foregroundStyle(.white)
+            .frame(maxWidth: .infinity).padding(.vertical, 17)
+            .background(Theme.gradient(Theme.trash, Theme.trash2),
+                        in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+            .shadow(color: Theme.trash.opacity(0.4), radius: 16, y: 8)
+            .opacity(enabled ? 1 : 0.45)
+        }
+        .buttonStyle(PressableStyle(scale: 0.97))
+        .disabled(!enabled || busy)
+    }
+}
+
 // MARK: - Motion tokens
 // Golden curve feel translated to SwiftUI. High-freq = snappy; rare = expressive.
 

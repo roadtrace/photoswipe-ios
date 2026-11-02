@@ -25,6 +25,8 @@ struct SourcePickerView: View {
                     tile(.largest, subtitle: "Free space fast")
                 }
 
+                randomCard
+
                 if !vm.facets.years.isEmpty {
                     Text("BY YEAR")
                         .font(.system(size: 11, weight: .semibold, design: .rounded))
@@ -117,6 +119,35 @@ struct SourcePickerView: View {
         }
     }
 
+    private var randomCard: some View {
+        Button { Haptics.tap(); vm.select(.random) } label: {
+            HStack(spacing: 16) {
+                Image(systemName: PhotoSource.random.icon)
+                    .font(.system(size: 24, weight: .semibold))
+                    .foregroundStyle(Theme.gradient(Theme.keep, Theme.keep2))
+                    .frame(width: 50, height: 50)
+                    .background(Circle().fill(Theme.keep.opacity(0.14)))
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Random")
+                        .font(.system(.headline, design: .rounded).weight(.bold))
+                        .foregroundStyle(.white)
+                    Text("Shuffled photos")
+                        .font(.system(.subheadline, design: .rounded))
+                        .foregroundStyle(Theme.textDim)
+                }
+                Spacer()
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 13, weight: .bold)).foregroundStyle(Theme.textDim)
+            }
+            .padding(18)
+            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 24, style: .continuous)
+                .strokeBorder(Theme.gradient(Theme.keep.opacity(0.4), .clear), lineWidth: 1))
+        }
+        .buttonStyle(PressableStyle(scale: 0.96))
+        .accessibilityIdentifier("source-random")
+    }
+
     private var pendingTrashBanner: some View {
         Button {
             Haptics.tap(.rigid)
@@ -129,12 +160,9 @@ struct SourcePickerView: View {
                     .frame(width: 42, height: 42)
                     .background(Theme.gradient(Theme.trash, Theme.trash2), in: Circle())
                 VStack(alignment: .leading, spacing: 1) {
-                    Text("Review \(vm.pendingTrashCount) queued photos")
+                    Text("\(vm.pendingTrashCount) photos to review")
                         .font(.system(.subheadline, design: .rounded).weight(.bold))
                         .foregroundStyle(.white)
-                    Text("From your last session — tap to review")
-                        .font(.system(size: 12, weight: .medium, design: .rounded))
-                        .foregroundStyle(Theme.textDim)
                 }
                 Spacer()
                 if vm.isCommitting { ProgressView().tint(.white) }

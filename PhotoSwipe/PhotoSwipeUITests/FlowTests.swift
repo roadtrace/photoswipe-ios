@@ -17,8 +17,8 @@ final class FlowTests: XCTestCase {
         XCTAssertTrue(checkbox.waitForExistence(timeout: 10))
         capture(app, name: "pending-trash-review")
         checkbox.tap()
-        XCTAssertTrue(app.buttons["No photos selected"].exists)
-        app.buttons["Close"].tap()
+        XCTAssertFalse(app.buttons["confirm-deletion"].isEnabled)
+        app.buttons["review-close"].tap()
         XCTAssertFalse(review.exists)
     }
 
@@ -33,22 +33,25 @@ final class FlowTests: XCTestCase {
         XCTAssertTrue(photo.waitForExistence(timeout: 60))
 
         photo.press(forDuration: 0.6)
-        XCTAssertTrue(app.buttons["Done"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.buttons["preview-close"].waitForExistence(timeout: 10))
         let zoom = app.scrollViews["zoom-photo"]
         XCTAssertTrue(zoom.waitForExistence(timeout: 20))
+        capture(app, name: "comparison-fit")
         zoom.doubleTap()
         capture(app, name: "comparison-preview")
-        app.buttons["Done"].tap()
+        app.buttons["preview-close"].tap()
         // Long press must not also toggle deletion.
         XCTAssertTrue(app.buttons["Nothing selected"].exists)
 
-        photo.tap()
-        let review = app.buttons["Review 1 photos"]
-        XCTAssertTrue(review.waitForExistence(timeout: 5))
+        for index in 0..<3 {
+            app.buttons.matching(identifier: "duplicate-photo").element(boundBy: index).tap()
+        }
+        let review = app.buttons["review-duplicates"]
+        XCTAssertTrue(app.staticTexts["Review 3"].waitForExistence(timeout: 5))
         capture(app, name: "duplicate-groups")
         app.buttons["duplicates-back"].tap()
         app.buttons["source-duplicates"].tap()
-        XCTAssertTrue(review.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["Review 3"].waitForExistence(timeout: 5))
         XCTAssertFalse(app.staticTexts["Scanning for duplicates"].exists)
 
         // A new process must restore groups and choices without a scan.
@@ -56,19 +59,32 @@ final class FlowTests: XCTestCase {
         launchWithPhotoAccess(app)
         XCTAssertTrue(duplicates.waitForExistence(timeout: 30))
         duplicates.tap()
-        XCTAssertTrue(review.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["Review 3"].waitForExistence(timeout: 5))
         review.tap()
         let tile = app.buttons.matching(identifier: "review-photo").firstMatch
         XCTAssertTrue(tile.waitForExistence(timeout: 10))
         capture(app, name: "deletion-review")
         tile.tap()
-        XCTAssertTrue(app.buttons["Done"].waitForExistence(timeout: 10))
-        app.buttons["Done"].tap()
-        app.buttons.matching(identifier: "review-toggle").firstMatch.tap()
-        XCTAssertTrue(app.buttons["No photos selected"].exists)
-        XCTAssertFalse(app.buttons["No photos selected"].isEnabled)
-        app.buttons["Close"].tap()
+        XCTAssertTrue(app.buttons["preview-close"].waitForExistence(timeout: 10))
+        app.buttons["preview-close"].tap()
+        for toggle in app.buttons.matching(identifier: "review-toggle").allElementsBoundByIndex { toggle.tap() }
+        XCTAssertFalse(app.buttons["confirm-deletion"].isEnabled)
+        app.buttons["review-close"].tap()
         XCTAssertTrue(app.buttons["Nothing selected"].waitForExistence(timeout: 5))
+    }
+
+    func testRandomSourceOpensDeck() {
+        continueAfterFailure = false
+        let app = XCUIApplication()
+        launchWithPhotoAccess(app)
+        let random = app.buttons["source-random"]
+        XCTAssertTrue(random.waitForExistence(timeout: 30))
+        if !random.isHittable { app.swipeUp() }
+        capture(app, name: "source-picker")
+        random.tap()
+        XCTAssertTrue(app.staticTexts["RANDOM"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.buttons["action-heart.fill"].isEnabled)
+        capture(app, name: "random-deck")
     }
 
     private func capture(_ app: XCUIApplication, name: String) {

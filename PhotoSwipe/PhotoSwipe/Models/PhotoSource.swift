@@ -5,6 +5,7 @@ import Photos
 /// working asset set (or, for `.duplicates`, the scan flow).
 enum PhotoSource: Hashable {
     case all
+    case random
     case screenshots
     case largest
     case year(Int)
@@ -13,6 +14,7 @@ enum PhotoSource: Hashable {
     var title: String {
         switch self {
         case .all: return "All Photos"
+        case .random: return "Random"
         case .screenshots: return "Screenshots"
         case .largest: return "Largest First"
         case .year(let y): return String(y)
@@ -23,6 +25,7 @@ enum PhotoSource: Hashable {
     var icon: String {
         switch self {
         case .all: return "photo.stack.fill"
+        case .random: return "shuffle"
         case .screenshots: return "camera.viewfinder"
         case .largest: return "arrow.up.right.square.fill"
         case .year: return "calendar"
@@ -33,6 +36,7 @@ enum PhotoSource: Hashable {
     var tint: Color {
         switch self {
         case .all: return Theme.album
+        case .random: return Theme.keep
         case .screenshots: return Theme.favorite
         case .largest: return Theme.trash
         case .year: return Theme.keep

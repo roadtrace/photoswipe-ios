@@ -34,8 +34,7 @@ struct DuplicatesView: View {
     // MARK: Header
 
     private var header: some View {
-        VStack(spacing: 10) {
-          HStack {
+        HStack {
             backButton
             Spacer()
             VStack(spacing: 1) {
@@ -47,20 +46,9 @@ struct DuplicatesView: View {
                     .foregroundStyle(.white)
             }
             Spacer()
-            Color.clear.frame(width: 44, height: 44)
-        }
-          HStack {
-            VStack(alignment: .leading, spacing: 2) {
-                if let date = vm.duplicateScanDate {
-                    Text("Saved \(date.formatted(date: .abbreviated, time: .shortened))")
-                }
-                if vm.unscannedPhotoCount > 0 { Text("\(vm.unscannedPhotoCount) new, changed, or unavailable photos") }
-            }
-            .font(.caption).foregroundStyle(Theme.textDim)
-            Spacer()
-            Button("Scan for more") { vm.scanForMore() }
-                .font(.subheadline.weight(.semibold)).tint(Theme.album)
-          }
+            PhotoChromeButton(symbol: "arrow.clockwise", label: "Scan for more") { vm.scanForMore() }
+                .accessibilityValue("\(vm.unscannedPhotoCount) unscanned photos")
+                .accessibilityIdentifier("scan-more")
         }
         .padding(.horizontal, 20)
         .padding(.vertical, 8)
@@ -84,11 +72,10 @@ struct DuplicatesView: View {
     private var groupsList: some View {
         ScrollView {
             LazyVStack(spacing: 16) {
-                Text("Tap to select for deletion. Hold a photo to preview and compare. Similar photos may be different shots.")
-                    .font(.footnote).foregroundStyle(Theme.textDim)
                 if vm.scanUnavailable > 0 {
-                    Text("\(vm.scanUnavailable) photos couldn't be loaded and were skipped.")
-                        .font(.footnote).foregroundStyle(Theme.favorite)
+                    Label("\(vm.scanUnavailable) unavailable", systemImage: "icloud.slash")
+                        .font(.system(size: 12, weight: .medium, design: .rounded))
+                        .foregroundStyle(Theme.textDim)
                 }
                 ForEach(vm.duplicateGroups) { group in
                     groupCard(group)
@@ -103,7 +90,7 @@ struct DuplicatesView: View {
     private func groupCard(_ group: DuplicateGroup) -> some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Text("\(group.assets.count) visually similar")
+                Text("\(group.assets.count) similar")
                     .font(.system(.subheadline, design: .rounded).weight(.semibold))
                     .foregroundStyle(.white)
                 Spacer()
@@ -140,7 +127,7 @@ struct DuplicatesView: View {
                 }
                 .overlay(alignment: .bottomLeading) {
                     if isKeeper {
-                        Text("SUGGESTED KEEP")
+                        Text("BEST")
                             .font(.system(size: 9, weight: .heavy, design: .rounded))
                             .foregroundStyle(.black)
                             .padding(.horizontal, 6).padding(.vertical, 3)
@@ -173,24 +160,11 @@ struct DuplicatesView: View {
     // MARK: Commit
 
     private var commitBar: some View {
-        Button { Task { await vm.commitDuplicates() } } label: {
-            HStack(spacing: 10) {
-                if vm.isCommitting { ProgressView().tint(.white) }
-                else { Image(systemName: "trash.fill") }
-                Text(vm.duplicateTrashCount == 0 ? "Nothing selected"
-                     : "Review \(vm.duplicateTrashCount) photos")
-                    .font(.system(.headline, design: .rounded).weight(.bold))
-            }
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 17)
-            .background(Theme.gradient(Theme.trash, Theme.trash2),
-                        in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-            .foregroundStyle(.white)
-            .shadow(color: Theme.trash.opacity(0.4), radius: 16, y: 8)
-            .opacity(vm.duplicateTrashCount == 0 ? 0.45 : 1)
+        PhotoPrimaryButton(title: vm.duplicateTrashCount == 0 ? "Nothing selected" : "Review \(vm.duplicateTrashCount)",
+                           symbol: "trash.fill", busy: vm.isCommitting, enabled: vm.duplicateTrashCount > 0) {
+            Task { await vm.commitDuplicates() }
         }
-        .buttonStyle(PressableStyle(scale: 0.97))
-        .disabled(vm.duplicateTrashCount == 0 || vm.isCommitting)
+        .accessibilityIdentifier("review-duplicates")
         .padding(.horizontal, 20)
         .padding(.top, 10)
         .padding(.bottom, 6)
@@ -203,21 +177,13 @@ struct DuplicatesView: View {
             Image(systemName: "checkmark.seal.fill")
                 .font(.system(size: 56))
                 .foregroundStyle(Theme.gradient(Theme.keep, Theme.keep2))
-            Text("No duplicates found")
+            Text("No matches")
                 .font(.system(size: 24, weight: .bold, design: .rounded))
                 .foregroundStyle(.white)
-            Text(vm.scanUnavailable > 0
-                 ? "\(vm.scanUnavailable) photos couldn't be loaded. Try again when iCloud photos are available."
-                 : "No close visual matches found. Crops, edits, or low-detail images may not match.")
-                .font(.system(.subheadline, design: .rounded))
-                .foregroundStyle(Theme.textDim)
-            Button("Back to filters") { Haptics.tap(); vm.backToPicker() }
-                .font(.system(.headline, design: .rounded).weight(.semibold))
-                .foregroundStyle(.white)
-                .padding(.horizontal, 22).padding(.vertical, 13)
-                .background(Theme.gradient(Theme.album, Theme.album2), in: Capsule())
-                .buttonStyle(PressableStyle())
-                .padding(.top, 6)
+            if vm.scanUnavailable > 0 {
+                Label("\(vm.scanUnavailable) unavailable", systemImage: "icloud.slash")
+                    .font(.system(.subheadline, design: .rounded)).foregroundStyle(Theme.textDim)
+            }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
