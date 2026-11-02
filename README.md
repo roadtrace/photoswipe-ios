@@ -4,6 +4,8 @@
 
 # PhotoSwipe
 
+For an unsigned IPA that SideStore can sign and install, see [SIDESTORE.md](SIDESTORE.md).
+
 **Clean up your iPhone photo library by swiping — Tinder-style.**
 
 Swipe left to trash, right to keep, up to favorite, down to skip. Find duplicates, free up storage, and organize into albums — all **100% on-device**, private, and free.

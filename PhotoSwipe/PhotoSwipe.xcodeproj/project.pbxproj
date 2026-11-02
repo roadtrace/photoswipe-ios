@@ -6,6 +6,10 @@
 	objectVersion = 70;
 	objects = {
 
+/* Begin PBXFileReference section */
+		AA0000000000000000000050 /* PhotoSwipe.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = PhotoSwipe.app; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		AA0000000000000000000010 /* PhotoSwipe */ = {isa = PBXFileSystemSynchronizedRootGroup; explicitFileTypes = {}; explicitFolders = (); path = PhotoSwipe; sourceTree = "<group>"; };
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -32,6 +36,7 @@
 		AA0000000000000000000040 /* Products */ = {
 			isa = PBXGroup;
 			children = (
+				AA0000000000000000000050 /* PhotoSwipe.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -56,6 +61,7 @@
 			);
 			name = PhotoSwipe;
 			productName = PhotoSwipe;
+			productReference = AA0000000000000000000050 /* PhotoSwipe.app */;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
