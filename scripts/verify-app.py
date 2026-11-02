@@ -19,7 +19,7 @@ def verify(app):
     executable = app / info["CFBundleExecutable"]
     if executable.parent != app or not executable.is_file():
         raise ValueError("App executable is missing or outside the app bundle")
-    subprocess.run(["xcrun", "lipo", "-verify_arch", "arm64", str(executable)], check=True)
+    subprocess.run(["xcrun", "lipo", str(executable), "-verify_arch", "arm64"], check=True)
     load_commands = subprocess.check_output(
         ["xcrun", "otool", "-l", str(executable)], text=True)
     for line in load_commands.splitlines():
