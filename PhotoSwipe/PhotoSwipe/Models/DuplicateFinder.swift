@@ -26,15 +26,21 @@ final class DuplicateFinder {
     private let service: PhotoLibraryService
     init(service: PhotoLibraryService) { self.service = service }
 
-    func scan(_ input: [PHAsset], progress: @MainActor @escaping (Double, Int) -> Void) async -> [DuplicateGroup] {
+    func scan(_ input: [PHAsset], cached: [String: CachedPhotoSignature],
+              progress: @MainActor @escaping (Double, Int) -> Void) async -> DuplicateScanSnapshot {
         let assets = input.sorted { $0.localIdentifier < $1.localIdentifier }
         var matcher = DuplicateMatcher()
         var unavailable = 0
+        var signatures: [String: CachedPhotoSignature] = [:]
         for (index, asset) in assets.enumerated() {
-            guard !Task.isCancelled else { return [] }
-            if let image = await service.requestImage(for: asset,
+            let revision = Self.revision(asset)
+            if let saved = cached[asset.localIdentifier], saved.revision == revision {
+                signatures[asset.localIdentifier] = saved
+                matcher.insert(saved.signature, index: index)
+            } else if let image = await service.requestImage(for: asset,
                     targetSize: CGSize(width: 256, height: 256), contentMode: .aspectFit),
                let signature = Self.signature(image) {
+                signatures[asset.localIdentifier] = CachedPhotoSignature(revision: revision, signature: signature)
                 matcher.insert(signature, index: index)
             } else {
                 unavailable += 1
@@ -42,12 +48,20 @@ final class DuplicateFinder {
             await progress(Double(index + 1) / Double(assets.count), unavailable)
         }
         await progress(1, unavailable)
-        return matcher.groups.filter { $0.count > 1 }
+        let groups = matcher.groups.filter { $0.count > 1 }
             .map { DuplicateGroup(assets: $0.map { assets[$0] }) }
             .sorted {
                 if $0.assets.count != $1.assets.count { return $0.assets.count > $1.assets.count }
                 return $0.keeperID < $1.keeperID
             }
+        return DuplicateScanSnapshot(signatures: signatures, groups: groups.map {
+            SavedDuplicateGroup(assetIDs: $0.assets.map(\.localIdentifier),
+                                keeperID: $0.keeperID, trashIDs: [])
+        }, scannedAt: Date(), unavailable: unavailable)
+    }
+
+    static func revision(_ asset: PHAsset) -> PhotoRevision {
+        PhotoRevision(modified: asset.modificationDate, width: asset.pixelWidth, height: asset.pixelHeight)
     }
 
     private static func signature(_ image: UIImage) -> DuplicateSignature? {

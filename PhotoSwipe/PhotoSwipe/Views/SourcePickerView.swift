@@ -128,10 +128,10 @@ struct SourcePickerView: View {
                     .frame(width: 42, height: 42)
                     .background(Theme.gradient(Theme.trash, Theme.trash2), in: Circle())
                 VStack(alignment: .leading, spacing: 1) {
-                    Text("\(vm.pendingTrashCount) photos ready to delete")
+                    Text("Review \(vm.pendingTrashCount) queued photos")
                         .font(.system(.subheadline, design: .rounded).weight(.bold))
                         .foregroundStyle(.white)
-                    Text("From your last session — tap to delete")
+                    Text("From your last session — tap to review")
                         .font(.system(size: 12, weight: .medium, design: .rounded))
                         .foregroundStyle(Theme.textDim)
                 }

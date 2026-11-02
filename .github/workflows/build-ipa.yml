@@ -25,7 +25,7 @@ jobs:
       - name: Run duplicate matching regression checks
         run: |
           mkdir -p build
-          xcrun swiftc PhotoSwipe/PhotoSwipe/Models/DuplicateSignature.swift tests/main.swift -o build/duplicate-checks
+          xcrun swiftc PhotoSwipe/PhotoSwipe/Models/DuplicateSignature.swift PhotoSwipe/PhotoSwipe/Models/DuplicateScanStore.swift PhotoSwipe/PhotoSwipe/Models/DeletionSelection.swift tests/main.swift -o build/duplicate-checks
           build/duplicate-checks
       - name: Build and verify unsigned device IPA
         id: ipa

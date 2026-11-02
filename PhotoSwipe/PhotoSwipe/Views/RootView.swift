@@ -12,8 +12,11 @@ struct RootView: View {
             .animation(.phase, value: phaseKey)
             .task { await vm.bootstrap() }
             .disabled(vm.interactionLocked)
+            .sheet(item: $vm.deletionReview) { review in
+                DeletionReviewView(vm: vm, review: review)
+            }
             .alert("Photo action failed", isPresented: Binding(
-                get: { vm.operationError != nil },
+                get: { vm.operationError != nil && vm.deletionReview == nil },
                 set: { if !$0 { vm.operationError = nil } }
             )) {
                 Button("OK", role: .cancel) { vm.operationError = nil }

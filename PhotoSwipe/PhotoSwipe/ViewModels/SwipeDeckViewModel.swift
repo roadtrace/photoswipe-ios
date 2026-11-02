@@ -22,6 +22,7 @@ final class SwipeDeckViewModel: ObservableObject {
     @Published var isCommitting = false
     @Published private(set) var isApplyingDecision = false
     @Published var operationError: String?
+    @Published var deletionReview: DeletionReview?
     var interactionLocked: Bool { isCommitting || isApplyingDecision }
 
     // Picker
@@ -32,6 +33,8 @@ final class SwipeDeckViewModel: ObservableObject {
     @Published private(set) var duplicateGroups: [DuplicateGroup] = []
     @Published var scanProgress: Double = 0
     @Published private(set) var scanUnavailable = 0
+    @Published private(set) var duplicateScanDate: Date?
+    @Published private(set) var unscannedPhotoCount = 0
 
     // Freed space
     @Published private(set) var estimatedFreeBytes: Int64 = 0
@@ -47,6 +50,8 @@ final class SwipeDeckViewModel: ObservableObject {
     private let store = ReviewStore()
     private let statsStore = StatsStore()
     private let trashStore = PendingTrashStore()
+    private let scanStore = DuplicateScanStore()
+    private var scanSnapshot: DuplicateScanSnapshot?
     private lazy var finder = DuplicateFinder(service: service)
     private var allImages: [PHAsset] = []
 
@@ -96,6 +101,8 @@ final class SwipeDeckViewModel: ObservableObject {
         stats = statsStore.load()
         pendingTrashIDs = trashStore.ids
         allImages = service.fetchAllPhotos()
+        scanSnapshot = scanStore.load()
+        restoreDuplicateResults()
         albums = service.userAlbums()
         if allImages.isEmpty { phase = .empty; return }
         facets = computeFacets(allImages)
@@ -120,7 +127,10 @@ final class SwipeDeckViewModel: ObservableObject {
     func select(_ source: PhotoSource) {
         self.source = source
         if source.isDuplicates {
-            Task { await runScan() }
+            allImages = service.fetchAllPhotos()
+            restoreDuplicateResults()
+            if scanSnapshot != nil { phase = .duplicates }
+            else { scanForMore() }
         } else {
             startDeck(for: source)
         }
@@ -163,7 +173,6 @@ final class SwipeDeckViewModel: ObservableObject {
         service.stopCaching()
         facets = computeFacets(allImages)
         history = []
-        duplicateGroups = []
         phase = .picker
     }
 
@@ -281,93 +290,162 @@ final class SwipeDeckViewModel: ObservableObject {
         estimatedFreeBytes = bytes
     }
 
-    // MARK: Commit (swipe deck)
+    // MARK: Deletion review
 
-    /// Delete the whole pending-trash queue now. Works mid-run (keep swiping)
-    /// or from the review / picker screens.
     func commitPendingTrash(returnToPicker: Bool) async {
         guard !interactionLocked else { return }
-        let toDelete = pendingTrash
-        guard !toDelete.isEmpty else {
-            if returnToPicker { Haptics.success(); backToPicker() }
+        guard !pendingTrash.isEmpty else {
+            if returnToPicker { backToPicker() }
             return
         }
-        isCommitting = true
-        defer { isCommitting = false }
-        let bytes = await Task.detached { [service] in service.totalBytes(of: toDelete) }.value
-        do {
-            try await service.deleteAssets(toDelete)   // system confirm sheet
-            freedBytes = bytes
-            estimatedFreeBytes = 0
-            stats = statsStore.record(freed: bytes, deleted: toDelete.count)
-            trashStore.clear()
-            pendingTrashIDs.removeAll()
-            history.removeAll { $0.decision == .trash }
-            let currentID = current?.localIdentifier
-            let deletedIDs = Set(toDelete.map(\.localIdentifier))
-            assets.removeAll { deletedIDs.contains($0.localIdentifier) }
-            index = currentID.flatMap { id in assets.firstIndex { $0.localIdentifier == id } } ?? assets.count
-            allImages = service.fetchAllPhotos()
-            Haptics.success()
-            if returnToPicker { backToPicker() }
-        } catch {
-            Haptics.warning()   // user canceled system delete sheet
+        deletionReview = DeletionReview(assets: pendingTrash, source: .pending(returnToPicker: returnToPicker))
+    }
+
+    func commitDeletions() async { await commitPendingTrash(returnToPicker: true) }
+
+    func commitDuplicates() async {
+        guard !interactionLocked else { return }
+        let selected = Set(duplicateGroups.flatMap { $0.trashIDs })
+        let photos = duplicateGroups.flatMap { $0.assets }.filter { selected.contains($0.localIdentifier) }
+        guard !photos.isEmpty else { return }
+        deletionReview = DeletionReview(assets: photos, source: .duplicates)
+    }
+
+    func setReviewSelection(_ selected: Set<String>, review: DeletionReview) {
+        guard !interactionLocked else { return }
+        let candidates = Set(review.assets.map(\.localIdentifier))
+        let selected = selected.intersection(candidates)
+        switch review.source {
+        case .pending:
+            for id in candidates {
+                if selected.contains(id) { trashStore.add(id); pendingTrashIDs.insert(id) }
+                else { trashStore.remove(id); pendingTrashIDs.remove(id) }
+            }
+        case .duplicates:
+            for index in duplicateGroups.indices {
+                duplicateGroups[index].trashIDs.subtract(candidates)
+                duplicateGroups[index].trashIDs.formUnion(selected.intersection(
+                    duplicateGroups[index].assets.map(\.localIdentifier)))
+            }
+            saveDuplicateResults()
         }
     }
 
-    /// Back-compat for the review screen.
-    func commitDeletions() async { await commitPendingTrash(returnToPicker: true) }
+    /// The only route to PhotoKit deletion: an explicit selection from the grid.
+    func confirmDeletion(_ review: DeletionReview, selected: Set<String>) async -> Bool {
+        guard !interactionLocked, deletionReview?.id == review.id, !selected.isEmpty,
+              selected.isSubset(of: Set(review.assets.map(\.localIdentifier))) else { return false }
+        isCommitting = true
+        defer { isCommitting = false }
+        let fresh = service.fetchAllPhotos()
+        let available = Set(fresh.map(\.localIdentifier))
+        var groups: [Set<String>] = []
+        if case .duplicates = review.source {
+            groups = duplicateGroups.map { Set($0.assets.map(\.localIdentifier)) }
+        }
+        guard DeletionSelection.isValid(selected, reviewed: Set(review.assets.map(\.localIdentifier)),
+                                        available: available, duplicateGroups: groups) else {
+            operationError = "Some reviewed photos or a group's keeper are no longer accessible. Close this review and check your selection again."
+            return false
+        }
+        let toDelete = fresh.filter { selected.contains($0.localIdentifier) }
+        let bytes = await Task.detached { [service] in service.totalBytes(of: toDelete) }.value
+        do {
+            try await service.deleteAssets(toDelete)
+            var duplicates = 0
+            if case .duplicates = review.source { duplicates = toDelete.count }
+            stats = statsStore.record(freed: bytes, deleted: toDelete.count, duplicates: duplicates)
+            freedBytes = bytes
+            estimatedFreeBytes = 0
+            for id in selected { trashStore.remove(id); pendingTrashIDs.remove(id) }
+            history.removeAll { selected.contains($0.asset.localIdentifier) }
+            let currentID = current?.localIdentifier
+            assets.removeAll { selected.contains($0.localIdentifier) }
+            index = currentID.flatMap { id in assets.firstIndex { $0.localIdentifier == id } } ?? assets.count
+            allImages = service.fetchAllPhotos()
+            restoreDuplicateResults()
+            facets = computeFacets(allImages)
+            deletionReview = nil
+            if case .pending(let returnToPicker) = review.source, returnToPicker { backToPicker() }
+            Haptics.success()
+            return true
+        } catch {
+            operationError = "Deletion wasn't completed. Your remaining selections are saved. \(error.localizedDescription)"
+            Haptics.warning()
+            return false
+        }
+    }
 
-    // MARK: Duplicates
+    // MARK: Saved duplicates
+
+    private func restoreDuplicateResults() {
+        let revisions = Dictionary(uniqueKeysWithValues: allImages.map {
+            ($0.localIdentifier, DuplicateFinder.revision($0))
+        })
+        if let snapshot = scanSnapshot {
+            scanSnapshot = snapshot.reconciled(with: revisions)
+        }
+        let byID = Dictionary(uniqueKeysWithValues: allImages.map { ($0.localIdentifier, $0) })
+        duplicateGroups = (scanSnapshot?.groups ?? []).compactMap { saved in
+            let photos = saved.assetIDs.compactMap { byID[$0] }
+            guard photos.count > 1 else { return nil }
+            var group = DuplicateGroup(assets: photos)
+            group.keeperID = saved.keeperID
+            group.trashIDs = saved.trashIDs
+            return group
+        }
+        duplicateScanDate = scanSnapshot?.scannedAt
+        scanUnavailable = scanSnapshot?.unavailable ?? 0
+        unscannedPhotoCount = revisions.filter { scanSnapshot?.signatures[$0.key]?.revision != $0.value }.count
+        if scanSnapshot != nil { saveDuplicateResults() }
+    }
+
+    private func saveDuplicateResults() {
+        guard var snapshot = scanSnapshot else { return }
+        snapshot.groups = duplicateGroups.map {
+            SavedDuplicateGroup(assetIDs: $0.assets.map(\.localIdentifier),
+                                keeperID: $0.keeperID, trashIDs: $0.trashIDs)
+        }
+        scanSnapshot = snapshot
+        do { try scanStore.save(snapshot) }
+        catch { operationError = "Couldn't save duplicate results on this device. \(error.localizedDescription)" }
+    }
+
+    func scanForMore() {
+        guard !interactionLocked, phase != .scanning else { return }
+        allImages = service.fetchAllPhotos()
+        phase = .scanning
+        Task { await runScan() }
+    }
 
     private func runScan() async {
-        phase = .scanning
         scanProgress = 0
         scanUnavailable = 0
-        // Include already-reviewed keepers so their later copies are still found.
-        let groups = await finder.scan(allImages) { [weak self] p, unavailable in
+        let selected = Set(duplicateGroups.flatMap { $0.trashIDs })
+        var snapshot = await finder.scan(allImages, cached: scanSnapshot?.signatures ?? [:]) { [weak self] p, unavailable in
             self?.scanProgress = p
             self?.scanUnavailable = unavailable
         }
-        duplicateGroups = groups
+        // Preserve explicit selections, but never allow a new grouping to select every member.
+        snapshot.groups = snapshot.groups.map { group in
+            var result = group
+            result.trashIDs = selected.intersection(group.assetIDs)
+            return result.retaining(Set(group.assetIDs))!
+        }
+        scanSnapshot = snapshot
+        restoreDuplicateResults()
         phase = .duplicates
         Haptics.success()
     }
 
     func toggleTrash(group: DuplicateGroup.ID, asset id: String) {
-        guard let gi = duplicateGroups.firstIndex(where: { $0.id == group }) else { return }
+        guard !interactionLocked, let gi = duplicateGroups.firstIndex(where: { $0.id == group }) else { return }
         var g = duplicateGroups[gi]
-        if g.trashIDs.contains(id) {
-            g.trashIDs.remove(id)
-        } else {
-            // keep at least one
-            if g.trashIDs.count < g.assets.count - 1 { g.trashIDs.insert(id) }
-            else { Haptics.warning(); return }
-        }
+        if g.trashIDs.contains(id) { g.trashIDs.remove(id) }
+        else if g.trashIDs.count < g.assets.count - 1 { g.trashIDs.insert(id) }
+        else { Haptics.warning(); return }
         duplicateGroups[gi] = g
+        saveDuplicateResults()
         Haptics.soft()
-    }
-
-    func commitDuplicates() async {
-        guard !interactionLocked else { return }
-        let ids = Set(duplicateGroups.flatMap { $0.trashIDs })
-        let toDelete = duplicateGroups.flatMap { $0.assets }.filter { ids.contains($0.localIdentifier) }
-        guard !toDelete.isEmpty else { backToPicker(); return }
-        isCommitting = true
-        defer { isCommitting = false }
-        let bytes = await Task.detached { [service] in service.totalBytes(of: toDelete) }.value
-        do {
-            try await service.deleteAssets(toDelete)
-            toDelete.forEach { store.mark($0.localIdentifier) }
-            freedBytes = bytes
-            estimatedFreeBytes = bytes
-            stats = statsStore.record(freed: bytes, deleted: toDelete.count, duplicates: toDelete.count)
-            allImages = service.fetchAllPhotos()
-            duplicateGroups = []
-            Haptics.success()
-            backToPicker()
-        } catch {
-            Haptics.warning()
-        }
     }
 }

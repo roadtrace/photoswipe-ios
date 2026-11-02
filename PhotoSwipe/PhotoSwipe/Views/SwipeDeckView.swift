@@ -84,7 +84,7 @@ struct SwipeDeckView: View {
                 } else {
                     Image(systemName: "trash.fill").font(.system(size: 13, weight: .bold))
                 }
-                Text("\(vm.pendingTrashCount)")
+                Text("Review \(vm.pendingTrashCount)")
                     .font(.system(size: 15, weight: .bold, design: .rounded))
                     .monospacedDigit()
                     .contentTransition(.numericText(value: Double(vm.pendingTrashCount)))

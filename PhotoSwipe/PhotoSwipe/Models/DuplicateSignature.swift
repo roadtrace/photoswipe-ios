@@ -1,7 +1,7 @@
 import Foundation
 
 /// Conservative visual similarity, not proof of byte-identical originals.
-struct DuplicateSignature: Hashable {
+struct DuplicateSignature: Hashable, Codable {
     let horizontal: UInt64
     let vertical: UInt64
     let colors: [UInt8] // 4 x 4 RGB cells

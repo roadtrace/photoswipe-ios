@@ -46,3 +46,44 @@ for start in 0..<64 {
     expect(matcher.groups == [[0, 1]], "Hash bands must not miss valid matches")
 }
 print("Duplicate regression checks passed")
+
+// Persistence survives reopening, preserves explicit choices, and drops stale assets.
+let revision = PhotoRevision(modified: Date(timeIntervalSince1970: 100), width: 100, height: 100)
+let record = CachedPhotoSignature(revision: revision, signature: original)
+let savedGroup = SavedDuplicateGroup(assetIDs: ["a", "b", "c"], keeperID: "a", trashIDs: ["b"])
+let snapshot = DuplicateScanSnapshot(signatures: ["a": record, "b": record, "c": record],
+    groups: [savedGroup], scannedAt: Date(), unavailable: 0)
+let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+let url = directory.appendingPathComponent("scan.json")
+let scanStore = DuplicateScanStore(url: url)
+try scanStore.save(snapshot)
+let reopened = DuplicateScanStore(url: url).load()!
+expect(reopened.groups[0].trashIDs == ["b"], "Reopening must preserve deletion selections")
+expect(reopened.signatures["a"]?.signature == original, "Reuse persisted fingerprints")
+let pruned = reopened.reconciled(with: ["a": revision, "b": revision])
+expect(pruned.groups[0].assetIDs == ["a", "b"], "Deleted/inaccessible photos must disappear")
+expect(pruned.groups[0].trashIDs == ["b"], "Preserve choices after unrelated deletion")
+let edited = PhotoRevision(modified: Date(timeIntervalSince1970: 200), width: 100, height: 100)
+let changed = reopened.reconciled(with: ["a": edited, "b": revision, "c": revision])
+expect(changed.signatures["a"] == nil, "Edited photos must be re-fingerprinted")
+expect(changed.groups[0].keeperID == "b", "Replace inaccessible keeper")
+expect(reopened.reconciled(with: ["b": revision]).groups.isEmpty, "Drop singleton groups")
+let allSelected = SavedDuplicateGroup(assetIDs: ["a", "b"], keeperID: "a", trashIDs: ["a", "b"])
+expect(allSelected.retaining(["a", "b"])!.trashIDs == ["b"], "Reconciliation must keep one photo")
+let emptyScan = DuplicateScanSnapshot(signatures: [:], groups: [], scannedAt: Date(), unavailable: 0)
+try scanStore.save(emptyScan)
+expect(scanStore.load() != nil, "Zero-result scans must also be saved")
+try Data("invalid".utf8).write(to: url)
+expect(scanStore.load() == nil, "A corrupt cache should allow a fresh scan")
+try FileManager.default.removeItem(at: directory)
+
+expect(DeletionSelection.isValid(["b"], reviewed: ["b", "c"], available: ["a", "b", "c"],
+    duplicateGroups: [["a", "b", "c"]]), "Reviewed subset can be deleted")
+expect(!DeletionSelection.isValid(["x"], reviewed: ["b"], available: ["b", "x"]), "Never expand beyond reviewed photos")
+expect(!DeletionSelection.isValid([], reviewed: ["b"], available: ["b"]), "Empty selection must not delete")
+expect(!DeletionSelection.isValid(["b"], reviewed: ["b"], available: []), "Revoked or deleted photo blocks confirmation")
+expect(!DeletionSelection.isValid(["b"], reviewed: ["b"], available: ["b"],
+    duplicateGroups: [["a", "b"]]), "An externally deleted keeper must block deleting the last copy")
+expect(!DeletionSelection.isValid(["a", "b"], reviewed: ["a", "b"], available: ["a", "b"],
+    duplicateGroups: [["a", "b"]]), "Cannot delete every duplicate")
+print("Saved-scan and deletion-safety regression checks passed")

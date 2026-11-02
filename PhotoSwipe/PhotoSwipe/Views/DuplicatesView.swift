@@ -6,6 +6,7 @@ import Photos
 /// automatically (highest resolution).
 struct DuplicatesView: View {
     @ObservedObject var vm: SwipeDeckViewModel
+    @State private var preview: PhotoPreview?
 
     var body: some View {
         Group {
@@ -19,12 +20,22 @@ struct DuplicatesView: View {
         .safeAreaInset(edge: .bottom, spacing: 0) {
             if !vm.duplicateGroups.isEmpty { commitBar }
         }
+        .fullScreenCover(item: $preview) { request in
+            PhotoPreviewView(preview: request,
+                isSelected: { id in vm.duplicateGroups.contains { $0.trashIDs.contains(id) } },
+                toggleSelection: { id in
+                    if let group = vm.duplicateGroups.first(where: { $0.assets.contains { $0.localIdentifier == id } }) {
+                        vm.toggleTrash(group: group.id, asset: id)
+                    }
+                })
+        }
     }
 
     // MARK: Header
 
     private var header: some View {
-        HStack {
+        VStack(spacing: 10) {
+          HStack {
             backButton
             Spacer()
             VStack(spacing: 1) {
@@ -37,6 +48,19 @@ struct DuplicatesView: View {
             }
             Spacer()
             Color.clear.frame(width: 44, height: 44)
+        }
+          HStack {
+            VStack(alignment: .leading, spacing: 2) {
+                if let date = vm.duplicateScanDate {
+                    Text("Saved \(date.formatted(date: .abbreviated, time: .shortened))")
+                }
+                if vm.unscannedPhotoCount > 0 { Text("\(vm.unscannedPhotoCount) new, changed, or unavailable photos") }
+            }
+            .font(.caption).foregroundStyle(Theme.textDim)
+            Spacer()
+            Button("Scan for more") { vm.scanForMore() }
+                .font(.subheadline.weight(.semibold)).tint(Theme.album)
+          }
         }
         .padding(.horizontal, 20)
         .padding(.vertical, 8)
@@ -59,7 +83,7 @@ struct DuplicatesView: View {
     private var groupsList: some View {
         ScrollView {
             LazyVStack(spacing: 16) {
-                Text("Nothing is selected for deletion. Similar photos may be different shots. Tap only the copies you want to remove.")
+                Text("Tap to select for deletion. Hold a photo to preview and compare. Similar photos may be different shots.")
                     .font(.footnote).foregroundStyle(Theme.textDim)
                 if vm.scanUnavailable > 0 {
                     Text("\(vm.scanUnavailable) photos couldn't be loaded and were skipped.")
@@ -102,10 +126,7 @@ struct DuplicatesView: View {
     private func cell(_ asset: PHAsset, in group: DuplicateGroup) -> some View {
         let trashed = group.trashIDs.contains(asset.localIdentifier)
         let isKeeper = group.keeperID == asset.localIdentifier
-        return Button {
-            vm.toggleTrash(group: group.id, asset: asset.localIdentifier)
-        } label: {
-            Thumbnail(asset: asset, side: 96)
+        return Thumbnail(asset: asset, side: 96)
                 .overlay(
                     RoundedRectangle(cornerRadius: 14, style: .continuous)
                         .strokeBorder(trashed ? Theme.trash : Theme.keep, lineWidth: 3)
@@ -128,8 +149,23 @@ struct DuplicatesView: View {
                 }
                 .opacity(trashed ? 0.55 : 1)
                 .animation(.snappy(duration: 0.2), value: trashed)
+        .contentShape(RoundedRectangle(cornerRadius: 14))
+        .gesture(LongPressGesture(minimumDuration: 0.35).exclusively(before: TapGesture())
+            .onEnded { result in
+                switch result {
+                case .first:
+                    preview = PhotoPreview(assets: group.assets, initialID: asset.localIdentifier)
+                case .second:
+                    vm.toggleTrash(group: group.id, asset: asset.localIdentifier)
+                }
+            })
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(trashed ? "Photo selected for deletion" : "Photo kept")
+        .accessibilityAddTraits(.isButton)
+        .accessibilityAction { vm.toggleTrash(group: group.id, asset: asset.localIdentifier) }
+        .accessibilityAction(named: "Preview and compare") {
+            preview = PhotoPreview(assets: group.assets, initialID: asset.localIdentifier)
         }
-        .buttonStyle(PressableStyle(scale: 0.92))
     }
 
     // MARK: Commit
@@ -140,7 +176,7 @@ struct DuplicatesView: View {
                 if vm.isCommitting { ProgressView().tint(.white) }
                 else { Image(systemName: "trash.fill") }
                 Text(vm.duplicateTrashCount == 0 ? "Nothing selected"
-                     : "Delete \(vm.duplicateTrashCount) duplicates")
+                     : "Review \(vm.duplicateTrashCount) photos")
                     .font(.system(.headline, design: .rounded).weight(.bold))
             }
             .frame(maxWidth: .infinity)

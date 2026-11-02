@@ -38,12 +38,12 @@ final class PhotoLibraryService {
     // MARK: Image loading
 
     func requestImage(for asset: PHAsset, targetSize: CGSize,
-                      contentMode: PHImageContentMode = .aspectFill) async -> UIImage? {
+                      contentMode: PHImageContentMode = .aspectFill, highQuality: Bool = false) async -> UIImage? {
         await withCheckedContinuation { cont in
             let options = PHImageRequestOptions()
-            options.deliveryMode = .opportunistic
+            options.deliveryMode = highQuality ? .highQualityFormat : .opportunistic
             options.isNetworkAccessAllowed = true
-            options.resizeMode = .fast
+            options.resizeMode = highQuality ? .exact : .fast
             var resumed = false
             imageManager.requestImage(
                 for: asset,
