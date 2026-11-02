@@ -139,7 +139,7 @@ struct ReviewView: View {
             .disabled(vm.isCommitting)
 
             HStack(spacing: 18) {
-                Button("Undo last") { Haptics.tap(.medium); vm.undo() }
+                Button("Undo last") { Task { await vm.undo() } }
                     .disabled(!vm.canUndo)
                     .opacity(vm.canUndo ? 1 : 0.35)
                 Button("Back to filters") { Haptics.tap(); vm.backToPicker() }

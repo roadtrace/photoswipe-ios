@@ -15,6 +15,11 @@ struct SwipeAction: Identifiable, Equatable {
     let id = UUID()
     let asset: PHAsset
     let decision: Decision
+    let deckIndex: Int
+    let wasFavorite: Bool
+    let wasInAlbum: Bool
+    let wasReviewed: Bool
+    let wasPendingTrash: Bool
 
     static func == (lhs: SwipeAction, rhs: SwipeAction) -> Bool {
         lhs.id == rhs.id

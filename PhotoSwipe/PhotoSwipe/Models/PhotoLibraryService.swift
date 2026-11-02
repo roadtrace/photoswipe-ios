@@ -97,6 +97,31 @@ final class PhotoLibraryService {
 
     // MARK: Mutations
 
+    enum LibraryError: LocalizedError {
+        case assetUnavailable, albumUnavailable
+        var errorDescription: String? {
+            switch self {
+            case .assetUnavailable: return "This photo is no longer accessible. Check Photos access and try again."
+            case .albumUnavailable: return "This album is unavailable or cannot be edited."
+            }
+        }
+    }
+
+    func currentAsset(_ id: String) throws -> PHAsset {
+        guard let asset = PHAsset.fetchAssets(withLocalIdentifiers: [id], options: nil).firstObject
+        else { throw LibraryError.assetUnavailable }
+        return asset
+    }
+
+    func contains(_ asset: PHAsset, albumID: String) -> Bool {
+        let albums = PHAssetCollection.fetchAssetCollectionsContaining(asset, with: .album, options: nil)
+        var found = false
+        albums.enumerateObjects { album, _, stop in
+            if album.localIdentifier == albumID { found = true; stop.pointee = true }
+        }
+        return found
+    }
+
     func setFavorite(_ asset: PHAsset, _ favorite: Bool) async throws {
         try await PHPhotoLibrary.shared().performChanges {
             let req = PHAssetChangeRequest(for: asset)
@@ -136,10 +161,20 @@ final class PhotoLibraryService {
     }
 
     func add(_ asset: PHAsset, toAlbumWithLocalIdentifier id: String) async throws {
-        guard let collection = album(withLocalIdentifier: id) else { return }
+        guard let collection = album(withLocalIdentifier: id), collection.canPerform(.addContent)
+        else { throw LibraryError.albumUnavailable }
         try await PHPhotoLibrary.shared().performChanges {
             guard let req = PHAssetCollectionChangeRequest(for: collection) else { return }
             req.addAssets([asset] as NSArray)
+        }
+    }
+
+    func remove(_ asset: PHAsset, fromAlbumWithLocalIdentifier id: String) async throws {
+        guard let collection = album(withLocalIdentifier: id), collection.canPerform(.removeContent)
+        else { throw LibraryError.albumUnavailable }
+        try await PHPhotoLibrary.shared().performChanges {
+            guard let request = PHAssetCollectionChangeRequest(for: collection) else { return }
+            request.removeAssets([asset] as NSArray)
         }
     }
 }

@@ -7,6 +7,7 @@ on:
     paths:
       - 'PhotoSwipe/**'
       - 'scripts/**'
+      - 'tests/**'
       - '.github/workflows/build-ipa.yml'
 
 permissions:
@@ -21,6 +22,11 @@ jobs:
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           persist-credentials: false
+      - name: Run duplicate matching regression checks
+        run: |
+          mkdir -p build
+          xcrun swiftc PhotoSwipe/PhotoSwipe/Models/DuplicateSignature.swift tests/main.swift -o build/duplicate-checks
+          build/duplicate-checks
       - name: Build and verify unsigned device IPA
         id: ipa
         run: bash scripts/build-ipa.sh

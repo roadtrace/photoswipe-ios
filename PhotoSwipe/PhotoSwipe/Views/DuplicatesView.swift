@@ -59,6 +59,12 @@ struct DuplicatesView: View {
     private var groupsList: some View {
         ScrollView {
             LazyVStack(spacing: 16) {
+                Text("Nothing is selected for deletion. Similar photos may be different shots. Tap only the copies you want to remove.")
+                    .font(.footnote).foregroundStyle(Theme.textDim)
+                if vm.scanUnavailable > 0 {
+                    Text("\(vm.scanUnavailable) photos couldn't be loaded and were skipped.")
+                        .font(.footnote).foregroundStyle(Theme.favorite)
+                }
                 ForEach(vm.duplicateGroups) { group in
                     groupCard(group)
                 }
@@ -72,7 +78,7 @@ struct DuplicatesView: View {
     private func groupCard(_ group: DuplicateGroup) -> some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Text("\(group.assets.count) similar")
+                Text("\(group.assets.count) visually similar")
                     .font(.system(.subheadline, design: .rounded).weight(.semibold))
                     .foregroundStyle(.white)
                 Spacer()
@@ -112,7 +118,7 @@ struct DuplicatesView: View {
                 }
                 .overlay(alignment: .bottomLeading) {
                     if isKeeper {
-                        Text("BEST")
+                        Text("SUGGESTED KEEP")
                             .font(.system(size: 9, weight: .heavy, design: .rounded))
                             .foregroundStyle(.black)
                             .padding(.horizontal, 6).padding(.vertical, 3)
@@ -162,7 +168,9 @@ struct DuplicatesView: View {
             Text("No duplicates found")
                 .font(.system(size: 24, weight: .bold, design: .rounded))
                 .foregroundStyle(.white)
-            Text("Your library looks clean.")
+            Text(vm.scanUnavailable > 0
+                 ? "\(vm.scanUnavailable) photos couldn't be loaded. Try again when iCloud photos are available."
+                 : "No close visual matches found. Crops, edits, or low-detail images may not match.")
                 .font(.system(.subheadline, design: .rounded))
                 .foregroundStyle(Theme.textDim)
             Button("Back to filters") { Haptics.tap(); vm.backToPicker() }

@@ -11,6 +11,15 @@ struct RootView: View {
             .background(AuroraBackground())
             .animation(.phase, value: phaseKey)
             .task { await vm.bootstrap() }
+            .disabled(vm.interactionLocked)
+            .alert("Photo action failed", isPresented: Binding(
+                get: { vm.operationError != nil },
+                set: { if !$0 { vm.operationError = nil } }
+            )) {
+                Button("OK", role: .cancel) { vm.operationError = nil }
+            } message: {
+                Text(vm.operationError ?? "Please try again.")
+            }
     }
 
     // String key so the cross-phase transition fires cleanly.

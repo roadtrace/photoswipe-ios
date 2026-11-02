@@ -9,6 +9,7 @@ struct SwipeDeckView: View {
     @ObservedObject var vm: SwipeDeckViewModel
     @State private var drag: CGSize = .zero
     @State private var showAlbumSheet = false
+    @State private var isAnimatingDecision = false
 
     var body: some View {
         deck
@@ -22,6 +23,7 @@ struct SwipeDeckView: View {
                 .presentationDetents([.medium, .large])
                 .presentationBackground(.ultraThinMaterial)
             }
+            .disabled(isAnimatingDecision || vm.interactionLocked)
     }
 
     // MARK: Header (premium / techy)
@@ -100,7 +102,7 @@ struct SwipeDeckView: View {
     private var undoButton: some View {
         Button {
             Haptics.tap(.medium)
-            vm.undo()
+            Task { await vm.undo() }
             withAnimation(.cardSpring) { drag = .zero }
         } label: {
             Image(systemName: "arrow.uturn.backward")
@@ -161,8 +163,12 @@ struct SwipeDeckView: View {
 
     private var dragGesture: some Gesture {
         DragGesture()
-            .onChanged { drag = $0.translation }
+            .onChanged {
+                guard !isAnimatingDecision && !vm.interactionLocked else { return }
+                drag = $0.translation
+            }
             .onEnded { value in
+                guard !isAnimatingDecision && !vm.interactionLocked else { return }
                 let t = value.translation
                 if t.width > Theme.swipeThreshold {
                     fling(.right, decision: .keep)
@@ -220,6 +226,8 @@ struct SwipeDeckView: View {
     private enum FlingDir { case left, right, up, down }
 
     private func fling(_ dir: FlingDir, decision: Decision) {
+        guard !isAnimatingDecision, !vm.interactionLocked, let assetID = vm.current?.localIdentifier else { return }
+        isAnimatingDecision = true
         switch decision {
         case .trash: Haptics.tap(.rigid)
         case .favorite: Haptics.success()
@@ -237,8 +245,9 @@ struct SwipeDeckView: View {
         // Let the card fly off before committing the decision and resetting.
         Task { @MainActor in
             try? await Task.sleep(for: .milliseconds(180))
-            vm.decide(decision)
+            await vm.decide(decision, expectedAssetID: assetID)
             drag = .zero
+            isAnimatingDecision = false
         }
     }
 }

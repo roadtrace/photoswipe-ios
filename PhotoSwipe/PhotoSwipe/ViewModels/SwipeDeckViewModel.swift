@@ -3,7 +3,7 @@ import Photos
 
 @MainActor
 final class SwipeDeckViewModel: ObservableObject {
-    enum Phase {
+    enum Phase: Equatable {
         case loading
         case permissionDenied
         case empty            // library has no photos at all
@@ -20,6 +20,9 @@ final class SwipeDeckViewModel: ObservableObject {
     @Published private(set) var history: [SwipeAction] = []
     @Published var albums: [PHAssetCollection] = []
     @Published var isCommitting = false
+    @Published private(set) var isApplyingDecision = false
+    @Published var operationError: String?
+    var interactionLocked: Bool { isCommitting || isApplyingDecision }
 
     // Picker
     @Published private(set) var facets = LibraryFacets()
@@ -28,6 +31,7 @@ final class SwipeDeckViewModel: ObservableObject {
     // Duplicates
     @Published private(set) var duplicateGroups: [DuplicateGroup] = []
     @Published var scanProgress: Double = 0
+    @Published private(set) var scanUnavailable = 0
 
     // Freed space
     @Published private(set) var estimatedFreeBytes: Int64 = 0
@@ -67,7 +71,7 @@ final class SwipeDeckViewModel: ObservableObject {
     }
     var remaining: Int { max(assets.count - index, 0) }
     var progress: Double { assets.isEmpty ? 0 : Double(index) / Double(assets.count) }
-    var canUndo: Bool { !history.isEmpty }
+    var canUndo: Bool { !history.isEmpty && !interactionLocked }
 
     var duplicateTrashCount: Int { duplicateGroups.reduce(0) { $0 + $1.trashIDs.count } }
 
@@ -175,27 +179,43 @@ final class SwipeDeckViewModel: ObservableObject {
 
     // MARK: Swipe decisions
 
-    func decide(_ decision: Decision) {
-        guard let asset = current else { return }
-        history.append(SwipeAction(asset: asset, decision: decision))
+    func decide(_ decision: Decision, expectedAssetID: String) async {
+        guard phase == .swiping, !interactionLocked,
+              let displayed = current, displayed.localIdentifier == expectedAssetID else { return }
+        isApplyingDecision = true
+        defer { isApplyingDecision = false }
+        do {
+            let asset = try service.currentAsset(expectedAssetID)
+            let wasInAlbum: Bool
+            if case .album(let id, _) = decision { wasInAlbum = service.contains(asset, albumID: id) }
+            else { wasInAlbum = false }
+            let action = SwipeAction(asset: asset, decision: decision, deckIndex: index,
+                wasFavorite: asset.isFavorite, wasInAlbum: wasInAlbum,
+                wasReviewed: store.isReviewed(expectedAssetID),
+                wasPendingTrash: pendingTrashIDs.contains(expectedAssetID))
+            if case .favorite = decision, !asset.isFavorite {
+                try await service.setFavorite(asset, true)
+            }
+            if case .album(let id, _) = decision, !wasInAlbum {
+                try await service.add(asset, toAlbumWithLocalIdentifier: id)
+            }
+            history.append(action)
 
-        switch decision {
-        case .favorite:
-            store.mark(asset.localIdentifier)
-            Task { try? await service.setFavorite(asset, true) }
-        case .album(let id, _):
-            store.mark(asset.localIdentifier)
-            Task { try? await service.add(asset, toAlbumWithLocalIdentifier: id) }
-        case .keep:
-            store.mark(asset.localIdentifier)
-        case .trash:
-            store.mark(asset.localIdentifier)
-            trashStore.add(asset.localIdentifier)
-            pendingTrashIDs.insert(asset.localIdentifier)
-        case .skip:
-            break   // not persisted — reappears next session
+            switch decision {
+            case .favorite, .album, .keep:
+                store.mark(asset.localIdentifier)
+            case .trash:
+                store.mark(asset.localIdentifier)
+                trashStore.add(asset.localIdentifier)
+                pendingTrashIDs.insert(asset.localIdentifier)
+            case .skip:
+                break // Reappears next session.
+            }
+            advance()
+        } catch {
+            operationError = "Couldn't apply this action. \(error.localizedDescription)"
+            Haptics.warning()
         }
-        advance()
     }
 
     private func advance() {
@@ -208,24 +228,36 @@ final class SwipeDeckViewModel: ObservableObject {
         }
     }
 
-    func undo() {
-        guard let last = history.popLast() else { return }
-        if phase == .review { phase = .swiping }
-        index = max(index - 1, 0)
-        Haptics.tap(.medium)
-
-        switch last.decision {
-        case .favorite:
-            store.unmark(last.asset.localIdentifier)
-            Task { try? await service.setFavorite(last.asset, false) }
-        case .keep, .album:
-            store.unmark(last.asset.localIdentifier)
-        case .trash:
-            store.unmark(last.asset.localIdentifier)
-            trashStore.remove(last.asset.localIdentifier)
-            pendingTrashIDs.remove(last.asset.localIdentifier)
-        case .skip:
-            break
+    func undo() async {
+        guard !interactionLocked, let last = history.last else { return }
+        isApplyingDecision = true
+        defer { isApplyingDecision = false }
+        do {
+            let asset = try service.currentAsset(last.asset.localIdentifier)
+            switch last.decision {
+            case .favorite:
+                if asset.isFavorite != last.wasFavorite {
+                    try await service.setFavorite(asset, last.wasFavorite)
+                }
+            case .album(let id, _):
+                if !last.wasInAlbum && service.contains(asset, albumID: id) {
+                    try await service.remove(asset, fromAlbumWithLocalIdentifier: id)
+                }
+            default: break
+            }
+            // Only consume undo after the Photos mutation succeeds.
+            history.removeLast()
+            let id = asset.localIdentifier
+            if last.wasReviewed { store.mark(id) } else { store.unmark(id) }
+            if last.wasPendingTrash { trashStore.add(id); pendingTrashIDs.insert(id) }
+            else { trashStore.remove(id); pendingTrashIDs.remove(id) }
+            index = last.deckIndex
+            estimatedFreeBytes = 0
+            phase = .swiping
+            Haptics.tap(.medium)
+        } catch {
+            operationError = "Couldn't undo. Your undo history is still available. \(error.localizedDescription)"
+            Haptics.warning()
         }
     }
 
@@ -250,6 +282,7 @@ final class SwipeDeckViewModel: ObservableObject {
     /// Delete the whole pending-trash queue now. Works mid-run (keep swiping)
     /// or from the review / picker screens.
     func commitPendingTrash(returnToPicker: Bool) async {
+        guard !interactionLocked else { return }
         let toDelete = pendingTrash
         guard !toDelete.isEmpty else {
             if returnToPicker { Haptics.success(); backToPicker() }
@@ -282,8 +315,12 @@ final class SwipeDeckViewModel: ObservableObject {
     private func runScan() async {
         phase = .scanning
         scanProgress = 0
-        let input = allImages.filter { !store.isReviewed($0.localIdentifier) }
-        let groups = await finder.scan(input) { [weak self] p in self?.scanProgress = p }
+        scanUnavailable = 0
+        // Include already-reviewed keepers so their later copies are still found.
+        let groups = await finder.scan(allImages) { [weak self] p, unavailable in
+            self?.scanProgress = p
+            self?.scanUnavailable = unavailable
+        }
         duplicateGroups = groups
         phase = .duplicates
         Haptics.success()
@@ -304,6 +341,7 @@ final class SwipeDeckViewModel: ObservableObject {
     }
 
     func commitDuplicates() async {
+        guard !interactionLocked else { return }
         let ids = Set(duplicateGroups.flatMap { $0.trashIDs })
         let toDelete = duplicateGroups.flatMap { $0.assets }.filter { ids.contains($0.localIdentifier) }
         guard !toDelete.isEmpty else { backToPicker(); return }
