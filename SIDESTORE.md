@@ -1,15 +1,16 @@
-# Build an IPA for SideStore
+# Build an installable IPA
 
 Requires an iPhone/iPad on iOS/iPadOS 17 or later and an already configured SideStore.
-The IPA is deliberately unsigned: SideStore re-signs it with your Apple account.
+The IPA is deliberately unsigned, so compatible sideloading tools can sign it.
+The instructions below use SideStore, which re-signs it with your Apple account.
 No Apple credentials, certificates, provisioning profiles, or GitHub secrets are needed for this build.
 
 ## GitHub Actions from Windows
 
 1. Open your fork's **Actions** tab and enable workflows if GitHub asks.
-2. Select **Build SideStore IPA**, then **Run workflow**. Select `sidestore-build`
+2. Select **Build IPA**, then **Run workflow**. Select `ipa-build`
    while these build changes are on that branch. Pushing to that branch also starts a build.
-3. After the run succeeds, download the **PhotoSwipe-SideStore** artifact from
+3. After the run succeeds, download the **PhotoSwipe-IPA** artifact from
    the run's summary. GitHub requires you to be signed in to download artifacts.
 4. Extract the downloaded artifact ZIP. The installable file inside is
    `PhotoSwipe-unsigned.ipa`. Do not import the outer artifact ZIP into SideStore.
@@ -74,6 +75,19 @@ Material limitations:
 
 ## Improvements in this fork
 
+- Hold a duplicate thumbnail to open a full-screen comparison viewer. Pinch or
+  double-tap to zoom, swipe or use arrows to compare, and explicitly change the
+  deletion selection from the viewer. Opening a preview does not select the photo.
+- Duplicate groups, fingerprints and selections are saved locally across screen
+  changes and app restarts, including scans with no matches. **Scan for more**
+  reuses unchanged fingerprints and compares new/changed photos with the saved
+  library. Inaccessible/deleted/edited photos are pruned from saved groups; edited
+  photos are reconsidered on the next requested scan. No photo files are cached.
+- Every deletion button opens a three-column review grid first. Tap a photo for
+  preview, uncheck photos to keep, then press Delete to open Apple's confirmation.
+  Exclusions remain saved when the review is closed or system deletion is canceled.
+  Confirmation revalidates access and duplicate keepers before requesting deletion.
+
 - Full accessible-library scanning, including reviewed keepers, without the old
   2,000-photo cap or eight-neighbor creation-date restriction.
 - Whole-image, orientation-normalized thumbnails; horizontal and vertical
@@ -92,8 +106,11 @@ Material limitations:
 - Swipes, mutations and undo are serialized; each delayed swipe targets its original
   photo. Undo and mid-session batch deletion track the remaining deck by photo ID.
 
-Actions runs duplicate regression checks before compiling the device IPA. Real
-photo-library edits and SideStore installation still require an on-device check.
+Actions runs duplicate, cache persistence and deletion-safety regression checks
+before compiling the device IPA. It also exercises preview, relaunch persistence
+and grid deselection using test photos in an iPhone Simulator; screenshots and logs
+are uploaded in the **PhotoSwipe-UI-Checks** artifact. Real photo-library edits and
+SideStore installation still require an on-device check.
 Suggested checks: favorite an already-favorited photo and undo; add a photo to an
 album it already belongs to and undo; add to a new album and undo; cancel a Photos
 change; rapidly tap two actions; undo after deleting an earlier batch. Verify the

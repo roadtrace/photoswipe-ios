@@ -1,9 +1,9 @@
-name: Build SideStore IPA
+name: Build IPA
 
 on:
   workflow_dispatch:
   push:
-    branches: [main, sidestore-build]
+    branches: [main, ipa-build]
     paths:
       - 'PhotoSwipe/**'
       - 'scripts/**'
@@ -33,7 +33,7 @@ jobs:
       - name: Upload IPA and build records
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: PhotoSwipe-SideStore
+          name: PhotoSwipe-IPA
           path: ${{ steps.ipa.outputs.artifact_path }}/
           if-no-files-found: error
           retention-days: 14
