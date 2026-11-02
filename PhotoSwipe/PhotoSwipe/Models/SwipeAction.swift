@@ -15,7 +15,6 @@ struct SwipeAction: Identifiable, Equatable {
     let id = UUID()
     let asset: PHAsset
     let decision: Decision
-    let deckIndex: Int
     let wasFavorite: Bool
     let wasInAlbum: Bool
     let wasReviewed: Bool

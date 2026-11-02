@@ -19,7 +19,7 @@ let shuffled = Array(colors.suffix(24)) + Array(colors.prefix(24))
 expect(!original.matches(signature(0, 0, shuffled)), "Same average color with different layout must be rejected")
 expect(!signature(0, 0, Array(repeating: 80, count: 48)).matches(
     signature(0, 0, Array(repeating: 80, count: 48))), "Flat gray photos are ambiguous")
-let solidRed = Array(repeating: [UInt8(255), 0, 0], count: 16).flatMap { $0 }
+let solidRed = Array(repeating: [UInt8(255), UInt8(0), UInt8(0)], count: 16).flatMap { $0 }
 expect(!signature(0, 0, solidRed).matches(signature(0, 0, solidRed)), "Flat colored photos are also ambiguous")
 
 // A/B and B/C match, A/C do not: never merge via transitive similarity.

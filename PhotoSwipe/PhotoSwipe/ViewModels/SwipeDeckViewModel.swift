@@ -189,7 +189,7 @@ final class SwipeDeckViewModel: ObservableObject {
             let wasInAlbum: Bool
             if case .album(let id, _) = decision { wasInAlbum = service.contains(asset, albumID: id) }
             else { wasInAlbum = false }
-            let action = SwipeAction(asset: asset, decision: decision, deckIndex: index,
+            let action = SwipeAction(asset: asset, decision: decision,
                 wasFavorite: asset.isFavorite, wasInAlbum: wasInAlbum,
                 wasReviewed: store.isReviewed(expectedAssetID),
                 wasPendingTrash: pendingTrashIDs.contains(expectedAssetID))
@@ -234,6 +234,8 @@ final class SwipeDeckViewModel: ObservableObject {
         defer { isApplyingDecision = false }
         do {
             let asset = try service.currentAsset(last.asset.localIdentifier)
+            guard let restoredIndex = assets.firstIndex(where: { $0.localIdentifier == asset.localIdentifier })
+            else { throw PhotoLibraryService.LibraryError.assetUnavailable }
             switch last.decision {
             case .favorite:
                 if asset.isFavorite != last.wasFavorite {
@@ -251,7 +253,7 @@ final class SwipeDeckViewModel: ObservableObject {
             if last.wasReviewed { store.mark(id) } else { store.unmark(id) }
             if last.wasPendingTrash { trashStore.add(id); pendingTrashIDs.insert(id) }
             else { trashStore.remove(id); pendingTrashIDs.remove(id) }
-            index = last.deckIndex
+            index = restoredIndex
             estimatedFreeBytes = 0
             phase = .swiping
             Haptics.tap(.medium)
@@ -273,7 +275,9 @@ final class SwipeDeckViewModel: ObservableObject {
 
     private func computeFreeEstimate() async {
         let assetsToFree = pendingTrash
+        let expectedIDs = pendingTrashIDs
         let bytes = await Task.detached { [service] in service.totalBytes(of: assetsToFree) }.value
+        guard phase == .review, pendingTrashIDs == expectedIDs else { return }
         estimatedFreeBytes = bytes
     }
 
@@ -299,6 +303,10 @@ final class SwipeDeckViewModel: ObservableObject {
             trashStore.clear()
             pendingTrashIDs.removeAll()
             history.removeAll { $0.decision == .trash }
+            let currentID = current?.localIdentifier
+            let deletedIDs = Set(toDelete.map(\.localIdentifier))
+            assets.removeAll { deletedIDs.contains($0.localIdentifier) }
+            index = currentID.flatMap { id in assets.firstIndex { $0.localIdentifier == id } } ?? assets.count
             allImages = service.fetchAllPhotos()
             Haptics.success()
             if returnToPicker { backToPicker() }

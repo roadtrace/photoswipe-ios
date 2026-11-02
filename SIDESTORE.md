@@ -63,19 +63,41 @@ Material limitations:
   code was found.
 - Photo deletion uses PhotoKit and the system confirmation flow. Deletion can
   propagate through iCloud Photos. Keep an independent backup before bulk cleanup.
-- Duplicate matches are heuristic, auto-select non-keepers, and can be wrong.
-  Review every proposed deletion; scanning is capped at 2,000 photos.
+- Duplicate matches are heuristic and can be wrong. This fork starts with no
+  deletions selected. Review every proposed deletion.
 - The undocumented `PHAssetResource.fileSize` KVC lookup can break on future iOS
   versions. Returning zero does not protect against an Objective-C undefined-key
   exception. The estimate does not guarantee immediately reclaimed disk space.
-- Upstream PR #3 reports multi-touch swipe reentrancy. This build retains upstream
-  app behavior; avoid rapid repeated taps/swipes and review the queued deletions.
-- Undo is incomplete: undoing an album action does not remove album membership,
-  and undoing a favorite clears the flag rather than restoring its earlier value.
+- Undo cannot recover photos after confirmed deletion; use Photos' Recently Deleted.
+  Undo history lasts for the current review session. An empty album created during
+  an album action remains after undo; existing album membership is preserved.
 
-Only the build project metadata and build tooling were changed; app Swift sources
-are the reviewed upstream sources. Actual compilation and device installation
-must be confirmed separately by a successful Actions run and an on-device check.
+## Improvements in this fork
+
+- Full accessible-library scanning, including reviewed keepers, without the old
+  2,000-photo cap or eight-neighbor creation-date restriction.
+- Whole-image, orientation-normalized thumbnails; horizontal and vertical
+  structure hashes, spatial RGB comparison, and aspect-ratio checks. Burst identity
+  alone no longer labels different shots as duplicates.
+- Five-band candidate indexing and complete-link groups prevent similarity chains
+  from merging unrelated photos. Highly repetitive libraries can still take longer;
+  this is conservative visual matching, not byte-for-byte duplicate verification.
+- Low-detail images are excluded as ambiguous; edits and crops may be missed.
+  Unavailable/iCloud-failed photos are counted and reported rather than called clean.
+- No deletion is preselected. The suggested keeper prefers existing favorites,
+  then higher resolution. Users can select other keepers while retaining at least one.
+- Favorite undo restores its previous flag. Album undo removes only membership
+  added by that action. Failed Photos edits do not advance the deck; failed undo
+  retains its history and reports the error.
+- Swipes, mutations and undo are serialized; each delayed swipe targets its original
+  photo. Undo and mid-session batch deletion track the remaining deck by photo ID.
+
+Actions runs duplicate regression checks before compiling the device IPA. Real
+photo-library edits and SideStore installation still require an on-device check.
+Suggested checks: favorite an already-favorited photo and undo; add a photo to an
+album it already belongs to and undo; add to a new album and undo; cancel a Photos
+change; rapidly tap two actions; undo after deleting an earlier batch. Verify the
+original favorite/membership state and the displayed photo after each action.
 
 ## CI dependencies
 
