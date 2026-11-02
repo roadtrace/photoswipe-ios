@@ -4,7 +4,7 @@ final class FlowTests: XCTestCase {
     func testPendingTrashReviewCanKeepPhoto() {
         continueAfterFailure = false
         let app = XCUIApplication()
-        app.launch()
+        launchWithPhotoAccess(app)
         XCTAssertTrue(app.buttons["source-all"].waitForExistence(timeout: 30))
         app.buttons["source-all"].tap()
         let trash = app.buttons["action-trash"]
@@ -25,7 +25,7 @@ final class FlowTests: XCTestCase {
     func testPreviewSavedResultsAndDeletionReview() {
         continueAfterFailure = false
         let app = XCUIApplication()
-        app.launch()
+        launchWithPhotoAccess(app)
         let duplicates = app.buttons["source-duplicates"]
         XCTAssertTrue(duplicates.waitForExistence(timeout: 30))
         duplicates.tap()
@@ -53,7 +53,7 @@ final class FlowTests: XCTestCase {
 
         // A new process must restore groups and choices without a scan.
         app.terminate()
-        app.launch()
+        launchWithPhotoAccess(app)
         XCTAssertTrue(duplicates.waitForExistence(timeout: 30))
         duplicates.tap()
         XCTAssertTrue(review.waitForExistence(timeout: 5))
@@ -76,5 +76,28 @@ final class FlowTests: XCTestCase {
         attachment.name = name
         attachment.lifetime = .keepAlways
         add(attachment)
+    }
+
+    private func launchWithPhotoAccess(_ app: XCUIApplication) {
+        let handler = addUIInterruptionMonitor(withDescription: "Photos access") { alert in
+            for title in ["Allow Full Access", "Allow Access to All Photos", "Allow"] {
+                if alert.buttons[title].exists { alert.buttons[title].tap(); return true }
+            }
+            return false
+        }
+        app.launch()
+        let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
+        for target in [springboard, app] {
+            if target.alerts.firstMatch.waitForExistence(timeout: 3) {
+                let alert = target.alerts.firstMatch
+                for title in ["Allow Full Access", "Allow Access to All Photos", "Allow"] {
+                    if alert.buttons[title].exists { alert.buttons[title].tap(); break }
+                }
+            }
+        }
+        // A safe blank area triggers XCTest's interruption handler if the
+        // permission sheet arrived after the initial checks.
+        app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.12)).tap()
+        removeUIInterruptionMonitor(handler)
     }
 }
