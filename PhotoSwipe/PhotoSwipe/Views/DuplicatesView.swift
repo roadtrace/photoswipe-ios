@@ -76,6 +76,7 @@ struct DuplicatesView: View {
                 .overlay(Circle().strokeBorder(Theme.stroke))
         }
         .buttonStyle(PressableStyle())
+        .accessibilityIdentifier("duplicates-back")
     }
 
     // MARK: Groups
@@ -162,6 +163,7 @@ struct DuplicatesView: View {
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(trashed ? "Photo selected for deletion" : "Photo kept")
         .accessibilityAddTraits(.isButton)
+        .accessibilityIdentifier("duplicate-photo")
         .accessibilityAction { vm.toggleTrash(group: group.id, asset: asset.localIdentifier) }
         .accessibilityAction(named: "Preview and compare") {
             preview = PhotoPreview(assets: group.assets, initialID: asset.localIdentifier)

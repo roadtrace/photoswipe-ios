@@ -75,6 +75,7 @@ struct DeletionReviewView: View {
             .aspectRatio(1, contentMode: .fit)
         }
         .buttonStyle(.plain)
+        .accessibilityIdentifier("review-photo")
         .accessibilityLabel("Preview photo \(asset.creationDate?.formatted(date: .abbreviated, time: .shortened) ?? "")")
         .overlay(alignment: .topTrailing) {
             Button { toggle(id) } label: {
@@ -83,6 +84,7 @@ struct DeletionReviewView: View {
                     .frame(width: 44, height: 44).contentShape(Rectangle())
             }
             .buttonStyle(.plain)
+            .accessibilityIdentifier("review-toggle")
             .accessibilityLabel(selected.contains(id) ? "Keep this photo" : "Select this photo for deletion")
         }
         .disabled(vm.isCommitting)

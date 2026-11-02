@@ -88,6 +88,7 @@ struct SourcePickerView: View {
             )
         }
         .buttonStyle(PressableStyle(scale: 0.96))
+        .accessibilityIdentifier(source.isDuplicates ? "source-duplicates" : "source-other")
     }
 
     private var yearChips: some View {

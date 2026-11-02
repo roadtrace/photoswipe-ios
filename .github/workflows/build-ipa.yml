@@ -37,3 +37,13 @@ jobs:
           path: ${{ steps.ipa.outputs.artifact_path }}/
           if-no-files-found: error
           retention-days: 14
+      - name: Check preview, persisted scans, and review grid in iPhone Simulator
+        run: bash scripts/check-ui.sh
+      - name: Upload simulator evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: PhotoSwipe-UI-Checks
+          path: build/ui-artifacts/
+          if-no-files-found: warn
+          retention-days: 14

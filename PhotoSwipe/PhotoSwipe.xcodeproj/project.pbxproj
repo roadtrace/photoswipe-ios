@@ -6,6 +6,37 @@
 	objectVersion = 70;
 	objects = {
 
+		BB0000000000000000000001 = {isa = PBXBuildFile; fileRef = BB0000000000000000000002; };
+		BB0000000000000000000002 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhotoSwipeUITests/FlowTests.swift; sourceTree = SOURCE_ROOT; };
+		BB0000000000000000000003 = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = PhotoSwipeUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		BB0000000000000000000004 = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (BB0000000000000000000001,); runOnlyForDeploymentPostprocessing = 0; };
+		BB0000000000000000000005 = {isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+		BB0000000000000000000006 = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+		BB0000000000000000000007 = {isa = PBXContainerItemProxy; containerPortal = AA00000000000000000000A0; proxyType = 1; remoteGlobalIDString = AA0000000000000000000060; remoteInfo = PhotoSwipe; };
+		BB0000000000000000000008 = {isa = PBXTargetDependency; target = AA0000000000000000000060; targetProxy = BB0000000000000000000007; };
+		BB0000000000000000000009 = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = BB000000000000000000000A;
+			buildPhases = (BB0000000000000000000004, BB0000000000000000000005, BB0000000000000000000006,);
+			buildRules = ();
+			dependencies = (BB0000000000000000000008,);
+			name = PhotoSwipeUITests;
+			productName = PhotoSwipeUITests;
+			productReference = BB0000000000000000000003;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
+		BB000000000000000000000A = {isa = XCConfigurationList; buildConfigurations = (BB000000000000000000000B, BB000000000000000000000C,); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
+		BB000000000000000000000B = {
+			isa = XCBuildConfiguration;
+			buildSettings = {GENERATE_INFOPLIST_FILE = YES; PRODUCT_BUNDLE_IDENTIFIER = com.alperen.PhotoSwipeUITests; PRODUCT_NAME = "$(TARGET_NAME)"; SWIFT_VERSION = 5.0; TARGETED_DEVICE_FAMILY = "1,2"; TEST_TARGET_NAME = PhotoSwipe; };
+			name = Debug;
+		};
+		BB000000000000000000000C = {
+			isa = XCBuildConfiguration;
+			buildSettings = {GENERATE_INFOPLIST_FILE = YES; PRODUCT_BUNDLE_IDENTIFIER = com.alperen.PhotoSwipeUITests; PRODUCT_NAME = "$(TARGET_NAME)"; SWIFT_VERSION = 5.0; TARGETED_DEVICE_FAMILY = "1,2"; TEST_TARGET_NAME = PhotoSwipe; };
+			name = Release;
+		};
+
 /* Begin PBXFileReference section */
 		AA0000000000000000000050 /* PhotoSwipe.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = PhotoSwipe.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
@@ -30,6 +61,7 @@
 			children = (
 				AA0000000000000000000010 /* PhotoSwipe */,
 				AA0000000000000000000040 /* Products */,
+				BB0000000000000000000002 /* FlowTests.swift */,
 			);
 			sourceTree = "<group>";
 		};
@@ -37,6 +69,7 @@
 			isa = PBXGroup;
 			children = (
 				AA0000000000000000000050 /* PhotoSwipe.app */,
+				BB0000000000000000000003 /* PhotoSwipeUITests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -93,6 +126,7 @@
 			projectRoot = "";
 			targets = (
 				AA0000000000000000000060 /* PhotoSwipe */,
+				BB0000000000000000000009 /* PhotoSwipeUITests */,
 			);
 		};
 /* End PBXProject section */

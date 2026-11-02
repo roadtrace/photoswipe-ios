@@ -7,6 +7,13 @@
          </BuildActionEntry>
       </BuildActionEntries>
    </BuildAction>
+   <TestAction buildConfiguration="Debug" selectedDebuggerIdentifier="Xcode.DebuggerFoundation.Debugger.LLDB" selectedLauncherIdentifier="Xcode.IDEFoundation.Launcher.LLDB" shouldUseLaunchSchemeArgsEnv="YES">
+      <Testables>
+         <TestableReference skipped="NO">
+            <BuildableReference BuildableIdentifier="primary" BlueprintIdentifier="BB0000000000000000000009" BuildableName="PhotoSwipeUITests.xctest" BlueprintName="PhotoSwipeUITests" ReferencedContainer="container:PhotoSwipe.xcodeproj"/>
+         </TestableReference>
+      </Testables>
+   </TestAction>
    <LaunchAction buildConfiguration="Debug" selectedDebuggerIdentifier="Xcode.DebuggerFoundation.Debugger.LLDB" selectedLauncherIdentifier="Xcode.IDEFoundation.Launcher.LLDB" launchStyle="0" useCustomWorkingDirectory="NO" ignoresPersistentStateOnLaunch="NO" debugDocumentVersioning="YES" debugServiceExtension="internal" allowLocationSimulation="YES">
       <BuildableProductRunnable runnableDebuggingMode="0">
          <BuildableReference BuildableIdentifier="primary" BlueprintIdentifier="AA0000000000000000000060" BuildableName="PhotoSwipe.app" BlueprintName="PhotoSwipe" ReferencedContainer="container:PhotoSwipe.xcodeproj"/>

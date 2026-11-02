@@ -136,6 +136,7 @@ private final class PhotoZoomScrollView: UIScrollView, UIScrollViewDelegate {
     override init(frame: CGRect) {
         super.init(frame: frame)
         delegate = self
+        accessibilityIdentifier = "zoom-photo"
         minimumZoomScale = 1
         maximumZoomScale = 6
         showsVerticalScrollIndicator = false

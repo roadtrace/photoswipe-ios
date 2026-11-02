@@ -1,0 +1,59 @@
+import XCTest
+
+final class FlowTests: XCTestCase {
+    func testPreviewSavedResultsAndDeletionReview() {
+        continueAfterFailure = false
+        let app = XCUIApplication()
+        app.launch()
+        let duplicates = app.buttons["source-duplicates"]
+        XCTAssertTrue(duplicates.waitForExistence(timeout: 30))
+        duplicates.tap()
+        let photo = app.buttons.matching(identifier: "duplicate-photo").firstMatch
+        XCTAssertTrue(photo.waitForExistence(timeout: 60))
+
+        photo.press(forDuration: 0.6)
+        XCTAssertTrue(app.buttons["Done"].waitForExistence(timeout: 10))
+        let zoom = app.scrollViews["zoom-photo"]
+        XCTAssertTrue(zoom.waitForExistence(timeout: 20))
+        zoom.doubleTap()
+        capture(app, name: "comparison-preview")
+        app.buttons["Done"].tap()
+        // Long press must not also toggle deletion.
+        XCTAssertTrue(app.buttons["Nothing selected"].exists)
+
+        photo.tap()
+        let review = app.buttons["Review 1 photos"]
+        XCTAssertTrue(review.waitForExistence(timeout: 5))
+        capture(app, name: "duplicate-groups")
+        app.buttons["duplicates-back"].tap()
+        app.buttons["source-duplicates"].tap()
+        XCTAssertTrue(review.waitForExistence(timeout: 5))
+        XCTAssertFalse(app.staticTexts["Scanning for duplicates"].exists)
+
+        // A new process must restore groups and choices without a scan.
+        app.terminate()
+        app.launch()
+        XCTAssertTrue(duplicates.waitForExistence(timeout: 30))
+        duplicates.tap()
+        XCTAssertTrue(review.waitForExistence(timeout: 5))
+        review.tap()
+        let tile = app.buttons.matching(identifier: "review-photo").firstMatch
+        XCTAssertTrue(tile.waitForExistence(timeout: 10))
+        capture(app, name: "deletion-review")
+        tile.tap()
+        XCTAssertTrue(app.buttons["Done"].waitForExistence(timeout: 10))
+        app.buttons["Done"].tap()
+        app.buttons.matching(identifier: "review-toggle").firstMatch.tap()
+        XCTAssertTrue(app.buttons["No photos selected"].exists)
+        XCTAssertFalse(app.buttons["No photos selected"].isEnabled)
+        app.buttons["Close"].tap()
+        XCTAssertTrue(app.buttons["Nothing selected"].waitForExistence(timeout: 5))
+    }
+
+    private func capture(_ app: XCUIApplication, name: String) {
+        let attachment = XCTAttachment(screenshot: app.screenshot())
+        attachment.name = name
+        attachment.lifetime = .keepAlways
+        add(attachment)
+    }
+}
