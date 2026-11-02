@@ -219,6 +219,7 @@ struct SwipeDeckView: View {
                 .shadow(color: c1.opacity(0.30), radius: 12, y: 5)
         }
         .buttonStyle(PressableStyle(scale: 0.86))
+        .accessibilityIdentifier("action-\(icon)")
     }
 
     // MARK: Fling

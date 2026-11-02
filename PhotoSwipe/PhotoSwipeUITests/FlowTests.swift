@@ -1,6 +1,27 @@
 import XCTest
 
 final class FlowTests: XCTestCase {
+    func testPendingTrashReviewCanKeepPhoto() {
+        continueAfterFailure = false
+        let app = XCUIApplication()
+        app.launch()
+        XCTAssertTrue(app.buttons["source-all"].waitForExistence(timeout: 30))
+        app.buttons["source-all"].tap()
+        let trash = app.buttons["action-trash"]
+        XCTAssertTrue(trash.waitForExistence(timeout: 10))
+        trash.tap()
+        let review = app.buttons.containing(.staticText, identifier: "Review 1").firstMatch
+        XCTAssertTrue(review.waitForExistence(timeout: 10))
+        review.tap()
+        let checkbox = app.buttons.matching(identifier: "review-toggle").firstMatch
+        XCTAssertTrue(checkbox.waitForExistence(timeout: 10))
+        capture(app, name: "pending-trash-review")
+        checkbox.tap()
+        XCTAssertTrue(app.buttons["No photos selected"].exists)
+        app.buttons["Close"].tap()
+        XCTAssertFalse(review.exists)
+    }
+
     func testPreviewSavedResultsAndDeletionReview() {
         continueAfterFailure = false
         let app = XCUIApplication()
